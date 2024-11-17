@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="初探ctypes">
+<title>nssctf刷题之偶遇新模块ctypes</title>
+
+<link rel='canonical' href='https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/'>
+
+<link rel="stylesheet" href="/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css"><meta property='og:title' content="nssctf刷题之偶遇新模块ctypes">
+<meta property='og:description' content="初探ctypes">
+<meta property='og:url' content='https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/'>
+<meta property='og:site_name' content='Pwn3r4llD4ys'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='ctypes' /><meta property='article:published_time' content='2024-11-13T20:36:26&#43;08:00'/><meta property='article:modified_time' content='2024-11-13T20:36:26&#43;08:00'/>
+<meta name="twitter:title" content="nssctf刷题之偶遇新模块ctypes">
+<meta name="twitter:description" content="初探ctypes">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu2032356966516602474.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Pwn3r4llD4ys</a></h1>
+            <h2 class="site-description">清修之地 何来杀气</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://space.bilibili.com/393835650'
+                        target="_blank"
+                        title="Bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round"  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" /><path d="M8 3l2 3" /><path d="M16 3l-2 3" /><path d="M9 13v-2" /><path d="M15 11v2" /></svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/Pwn3r4llD4ys/'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/en/" >English</option>
+                                
+                                    <option value="https://Pwn3r4llD4ys.github.io/" selected>中文</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#time">time()</a></li>
+    <li><a href="#srand">srand()</a></li>
+    <li><a href="#rand">rand()</a></li>
+    <li><a href="#python库ctypes">python库ctypes</a></li>
+    <li><a href="#ctypes解题">ctypes解题</a></li>
+    <li><a href="#运行c程序解题">运行C程序解题</a></li>
+    <li><a href="#小结">小结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/pwn/" >
+                Pwn
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/">nssctf刷题之偶遇新模块ctypes</a>
+        </h2>
+    
+        
+        <h3 class="article-subtitle">
+            初探ctypes
+        </h3>
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">2024-11-13</time>
+            </div>
+        
+
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="gdouctf-2023真男人下120层">[GDOUCTF 2023]真男人下120层
+</h1><p><strong>nssctf地址：</strong><a class="link" href="https://www.nssctf.cn/problem/3663"  target="_blank" rel="noopener"
+    >https://www.nssctf.cn/problem/3663</a></p>
+<p><strong>不是平常的漏洞利用，主要是针对随机数的条件匹配</strong></p>
+<p>看了一些wp发现很多都是用<strong>ctypes</strong>这个库，了解了一下还是很有学习的必要，顺便学习一下新的函数</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">int</span> <span class="kr">__fastcall</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="n">envp</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">v3</span><span class="p">;</span> <span class="c1">// eax
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="kt">int</span> <span class="n">v4</span><span class="p">;</span> <span class="c1">// eax
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="kt">int</span> <span class="n">v6</span><span class="p">;</span> <span class="c1">// [rsp+8h] [rbp-18h] BYREF
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">i</span><span class="p">;</span> <span class="c1">// [rsp+Ch] [rbp-14h]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="kr">__int64</span> <span class="n">v8</span><span class="p">;</span> <span class="c1">// [rsp+10h] [rbp-10h]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="kt">unsigned</span> <span class="kr">__int64</span> <span class="n">v9</span><span class="p">;</span> <span class="c1">// [rsp+18h] [rbp-8h]
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">  <span class="n">v9</span> <span class="o">=</span> <span class="nf">__readfsqword</span><span class="p">(</span><span class="mh">0x28u</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">setbuf</span><span class="p">(</span><span class="n">_bss_start</span><span class="p">,</span> <span class="mi">0LL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="n">v3</span> <span class="o">=</span> <span class="nf">time</span><span class="p">(</span><span class="mi">0LL</span><span class="p">);</span>  <span class="c1">// 返回当前时间戳
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="nf">srand</span><span class="p">(</span><span class="n">v3</span><span class="p">);</span>  <span class="c1">// 设置随机数种子
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="n">v8</span> <span class="o">=</span> <span class="mi">2772839826LL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  <span class="n">v4</span> <span class="o">=</span> <span class="nf">rand</span><span class="p">();</span>  <span class="c1">// 依据上面的种子生成随机数
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="nf">srand</span><span class="p">(</span><span class="n">v4</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">-</span> <span class="mi">1522127470</span><span class="p">);</span>  <span class="c1">// 重新设置种子
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\x1B</span><span class="s">[31m&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\n\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34; ##   ## #######  ####### ######## ####### &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34; ##   ##     ###  ##         ##    ##      &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34; #######   ###    ##         ##    ####    &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34; ##   ## ###      ##         ##    ##      &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34; ##   ## #######  #######    ##    ##      </span><span class="se">\n\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\x1B</span><span class="s">[0m&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34;Welcome!&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="n">aThereAreFourDo</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34;Only one door leads to the right path. If you choose the wrong one, you will be killed by a trap.</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="k">for</span> <span class="p">(</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">120</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span> <span class="p">)</span>  <span class="c1">// 通过120次的条件满足输出flag
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>  <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">print_door</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\t\t\t</span><span class="s">Floor %d</span><span class="se">\n\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">__isoc99_scanf</span><span class="p">(</span><span class="s">&#34;%d&#34;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">v6</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span> <span class="nf">rand</span><span class="p">()</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">!=</span> <span class="n">v6</span> <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\x1B</span><span class="s">[31m&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="nf">puts</span><span class="p">(</span><span class="s">&#34;YOU DIED!&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\x1B</span><span class="s">[0m&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">system</span><span class="p">(</span><span class="s">&#34;clear&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="p">}</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">puts</span><span class="p">(</span><span class="s">&#34;Congratulation!&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="nf">cat_flag</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="time">time()
+</h2><p>这是一个返回距离<strong>1970年1月1日00:00:00 UTC</strong>经过的秒数</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">time_t</span> <span class="nf">time</span><span class="p">(</span><span class="kt">time_t</span> <span class="o">*</span><span class="n">t</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>该函数有两种用法</p>
+<ul>
+<li>返回值接收时间戳，参数为0或NULL</li>
+<li>变量接收时间戳，函数参数为该变量指针</li>
+</ul>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;time.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="kt">time_t</span> <span class="n">current_time_1</span> <span class="o">=</span> <span class="nf">time</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>  <span class="c1">// 1
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="kt">time_t</span> <span class="n">current_time_2</span> <span class="o">=</span> <span class="nf">time</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>  <span class="c1">// 1
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>	<span class="kt">time_t</span> <span class="n">current_time_3</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">time</span><span class="p">(</span><span class="o">&amp;</span><span class="n">current_time_3</span><span class="p">);</span>  <span class="c1">// 2
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>
+</span></span><span class="line"><span class="cl">	<span class="nf">printf</span><span class="p">(</span><span class="s">&#34;current_time_1=%ld</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span><span class="n">current_time_1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">printf</span><span class="p">(</span><span class="s">&#34;current_time_2=%ld</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span><span class="n">current_time_2</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">printf</span><span class="p">(</span><span class="s">&#34;current_time_3=%ld</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span><span class="n">current_time_3</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/1.png"
+	width="801"
+	height="415"
+	srcset="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/1_hu675539566632600515.png 480w, /p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/1_hu9035154399284512349.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="193"
+		data-flex-basis="463px"
+	
+></p>
+<h2 id="srand">srand()
+</h2><p>用于设置伪随机数种子的函数，种子决定随机数的值，为了让伪随机不那么伪随机通常参数用<strong>当前的时间戳</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">srand</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">seed</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="rand">rand()
+</h2><p>返回伪随机数的函数</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">rand</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>没有调用srand()设置随机数种子，就相当于srand(1)，也就是默认种子是1</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;time.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> 
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">srand</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span><span class="n">i</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">printf</span><span class="p">(</span><span class="s">&#34;%d &#34;</span><span class="p">,</span><span class="nf">rand</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">printf</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><img src="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/2.png"
+	width="789"
+	height="301"
+	srcset="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/2_hu12469278511850821234.png 480w, /p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E5%81%B6%E9%81%87%E6%96%B0%E6%A8%A1%E5%9D%97ctypes/2_hu11609826717636890845.png 1024w"
+	loading="lazy"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="262"
+		data-flex-basis="629px"
+	
+></p>
+<h2 id="python库ctypes">python库ctypes
+</h2><p><strong>ctypes</strong>是一个提供C语言共享库接口的python标准库，通过ctypes可以在python调用C语言的函数。反编译出来的伪代码显示程序是用<strong>某一时刻的时间戳</strong>作为随机数种子，除非手速足够快可以让python脚本和C程序同时运行（当然这基本不可能）获取<strong>相同的时间戳</strong>，不然只能在python<strong>调用C函数</strong>或者在python中<strong>运行C程序</strong>来实现时间戳的统一。</p>
+<h2 id="ctypes解题">ctypes解题
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">sys</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">ctypes</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;amd64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">terminal</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;tmux&#34;</span><span class="p">,</span><span class="s2">&#34;splitw&#34;</span><span class="p">,</span><span class="s2">&#34;-v&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">elf</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s1">&#39;./bin&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&#34;local&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">	<span class="n">p</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s2">&#34;./bin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="n">libc</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">libc</span>
+</span></span><span class="line"><span class="cl">	<span class="n">gdb</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">	<span class="n">p</span> <span class="o">=</span> <span class="n">remote</span><span class="p">(</span><span class="s1">&#39;node4.anna.nssctf.cn&#39;</span><span class="p">,</span><span class="mi">28283</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># 调用C函数</span>
+</span></span><span class="line"><span class="cl"><span class="n">libc</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="s2">&#34;libc.so.6&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">libc</span><span class="o">.</span><span class="n">srand</span><span class="o">.</span><span class="n">argtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">ctypes</span><span class="o">.</span><span class="n">c_uint</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">libc</span><span class="o">.</span><span class="n">srand</span><span class="p">(</span><span class="n">libc</span><span class="o">.</span><span class="n">time</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">res</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">libc</span><span class="o">.</span><span class="n">srand</span><span class="p">(</span><span class="n">res</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">-</span> <span class="mi">1522127470</span><span class="p">)</span> 
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">p</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="sa">b</span><span class="s2">&#34;trap.</span><span class="se">\n</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">120</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">rand_r</span> <span class="o">=</span> <span class="n">libc</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">p</span><span class="o">.</span><span class="n">sendlineafter</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Floor </span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&#34;</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span><span class="nb">str</span><span class="p">(</span><span class="n">rand_r</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">p</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="运行c程序解题">运行C程序解题
+</h2><div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">sys</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">subprocess</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="s1">&#39;debug&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">arch</span> <span class="o">=</span> <span class="s1">&#39;amd64&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="n">context</span><span class="o">.</span><span class="n">terminal</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&#34;tmux&#34;</span><span class="p">,</span><span class="s2">&#34;splitw&#34;</span><span class="p">,</span><span class="s2">&#34;-v&#34;</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">elf</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s1">&#39;./bin&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&#34;local&#34;</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">	<span class="n">p</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s2">&#34;./bin&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="n">libc</span> <span class="o">=</span> <span class="n">elf</span><span class="o">.</span><span class="n">libc</span>
+</span></span><span class="line"><span class="cl">	<span class="n">gdb</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">	<span class="n">p</span> <span class="o">=</span> <span class="n">remote</span><span class="p">(</span><span class="s1">&#39;node4.anna.nssctf.cn&#39;</span><span class="p">,</span><span class="mi">28283</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">res</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&#34;./demo&#34;</span><span class="p">],</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">stdout</span>
+</span></span><span class="line"><span class="cl"><span class="n">res</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">&#34;</span><span class="p">,</span><span class="s2">&#34;&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">res</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">p</span><span class="o">.</span><span class="n">recvuntil</span><span class="p">(</span><span class="sa">b</span><span class="s2">&#34;trap.</span><span class="se">\n</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">120</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">	<span class="n">rand_r</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">	<span class="n">p</span><span class="o">.</span><span class="n">sendlineafter</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;Floor </span><span class="si">{</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&#34;</span><span class="o">.</span><span class="n">encode</span><span class="p">(),</span> <span class="n">rand_r</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">p</span><span class="o">.</span><span class="n">interactive</span><span class="p">()</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>当然要提前编译好C程序</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="c1">// gcc demo.c -o demo
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;time.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span> 
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">srand</span><span class="p">(</span><span class="nf">time</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">	<span class="nf">srand</span><span class="p">(</span><span class="nf">rand</span><span class="p">()</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">-</span> <span class="mi">1522127470</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">	<span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span><span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">120</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="nf">printf</span><span class="p">(</span><span class="s">&#34;%d </span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span><span class="nf">rand</span><span class="p">()</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="小结">小结
+</h2><p>不是什么漏洞利用的pwn题，见过练一练就有思路怎么做了，新手做一做可以开拓下知识面</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/ctypes/">Ctypes</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">nssctf刷题之system中的vfork问题</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8B%E8%AE%A1%E7%AE%97%E9%A2%98/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">nssctf刷题之计算题</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E6%A0%88%E6%BA%A2%E5%87%BA%E4%B9%8Bret2syscall/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">栈溢出之ret2syscall</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/ret2csu/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Ret2csu</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E6%A0%88%E8%BF%81%E7%A7%BB/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">栈迁移</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2024 Pwn3r4llD4ys
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.26.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>

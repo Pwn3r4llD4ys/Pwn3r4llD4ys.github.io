@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Fork on Pwn3r4llD4ys</title>
+        <link>https://Pwn3r4llD4ys.github.io/tags/fork/</link>
+        <description>Recent content in Fork on Pwn3r4llD4ys</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>Pwn3r4llD4ys</copyright>
+        <lastBuildDate>Sat, 16 Nov 2024 19:07:39 +0800</lastBuildDate><atom:link href="https://Pwn3r4llD4ys.github.io/tags/fork/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>nssctf刷题之system中的vfork问题</title>
+        <link>https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/</link>
+        <pubDate>Sat, 16 Nov 2024 19:07:39 +0800</pubDate>
+        
+        <guid>https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/</guid>
+        <description>&lt;h1 id=&#34;hnctf-2022-week1ezr0p32&#34;&gt;[HNCTF 2022 Week1]ezr0p32
+&lt;/h1&gt;&lt;p&gt;&lt;strong&gt;nssctf链接：&lt;/strong&gt;&lt;a class=&#34;link&#34; href=&#34;https://www.nssctf.cn/problem/2930&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;https://www.nssctf.cn/problem/2930&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;一道简单的ret2text的题目，给的是32位程序，并且还调用了system输出，&lt;strong&gt;不过一般是不会在system中echo的，这也是为了照顾新生&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;写入/bin/sh调用system即可getshell&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div class=&#34;chroma&#34;&gt;
+&lt;table class=&#34;lntable&#34;&gt;&lt;tr&gt;&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code&gt;&lt;span class=&#34;lnt&#34;&gt; 1
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 2
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 3
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 4
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 5
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 6
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 7
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 8
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt; 9
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;10
+&lt;/span&gt;&lt;span class=&#34;lnt&#34;&gt;11
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td class=&#34;lntd&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; class=&#34;chroma&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;kt&#34;&gt;int&lt;/span&gt; &lt;span class=&#34;nf&#34;&gt;dofunc&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;()&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;{&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;kt&#34;&gt;char&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;buf&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;[&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;28&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;];&lt;/span&gt; &lt;span class=&#34;c1&#34;&gt;// [esp+Ch] [ebp-1Ch] BYREF
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;c1&#34;&gt;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nf&#34;&gt;system&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;echo welcome to xzctf,have a fan time&lt;/span&gt;&lt;span class=&#34;se&#34;&gt;\n&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nf&#34;&gt;puts&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;please tell me your name&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nf&#34;&gt;read&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;o&#34;&gt;&amp;amp;::&lt;/span&gt;&lt;span class=&#34;n&#34;&gt;buf&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;mh&#34;&gt;0x100u&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nf&#34;&gt;puts&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;s&#34;&gt;&amp;#34;now it&amp;#39;s your play time~&amp;#34;&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;nf&#34;&gt;read&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;(&lt;/span&gt;&lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;n&#34;&gt;buf&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;,&lt;/span&gt; &lt;span class=&#34;mh&#34;&gt;0x30u&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;);&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;  &lt;span class=&#34;k&#34;&gt;return&lt;/span&gt; &lt;span class=&#34;mi&#34;&gt;0&lt;/span&gt;&lt;span class=&#34;p&#34;&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span class=&#34;line&#34;&gt;&lt;span class=&#34;cl&#34;&gt;&lt;span class=&#34;p&#34;&gt;}&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;原本以为可以快速调试获取shell，但是在gdb中每次运行完system都会出问题&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/1.png&#34;
+	width=&#34;1660&#34;
+	height=&#34;716&#34;
+	srcset=&#34;https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/1_hu5838880619104746896.png 480w, https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/1_hu3627362412639396004.png 1024w&#34;
+	loading=&#34;lazy&#34;
+	
+	
+		class=&#34;gallery-image&#34; 
+		data-flex-grow=&#34;231&#34;
+		data-flex-basis=&#34;556px&#34;
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;大致的意思就是system调用时通过vfork创建了子进程，导致gdb去追踪子进程。起初遇到这个问题也是一头雾水的，后面向多位师傅咨询了一下，有效的解决方案大致有两种&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;set $eip=0x8048567&lt;/strong&gt;也就是直接跳过这个函数保持gdb的调试&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;set follow-fork-mode parent&lt;/strong&gt;设置保持对父进程的追踪调试&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;使用follow-fork-mode会更好一些，当然调试的时候输入还是挺麻烦的，可以写进.gdbinit&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/2.png&#34;
+	width=&#34;747&#34;
+	height=&#34;372&#34;
+	srcset=&#34;https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/2_hu14604706493644215541.png 480w, https://Pwn3r4llD4ys.github.io/p/nssctf%E5%88%B7%E9%A2%98%E4%B9%8Bsystem%E4%B8%AD%E7%9A%84vfork%E9%97%AE%E9%A2%98/2_hu3232043464405819629.png 1024w&#34;
+	loading=&#34;lazy&#34;
+	
+	
+		class=&#34;gallery-image&#34; 
+		data-flex-grow=&#34;200&#34;
+		data-flex-basis=&#34;481px&#34;
+	
+&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;以后遇到system函数就可以愉快地ni了~&lt;/strong&gt;&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>
